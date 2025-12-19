@@ -19,6 +19,7 @@ pub enum MessageSection {
     Reviewers,
     ReviewedBy,
     PullRequest,
+    StackInfo,
 }
 
 pub fn message_section_label(section: &MessageSection) -> &'static str {
@@ -30,6 +31,7 @@ pub fn message_section_label(section: &MessageSection) -> &'static str {
         Reviewers => "Reviewers",
         ReviewedBy => "Reviewed By",
         PullRequest => "Pull Request",
+        StackInfo => "Stack Info",
     }
 }
 
@@ -43,6 +45,7 @@ pub fn message_section_by_label(label: &str) -> Option<MessageSection> {
         "reviewers" => Some(Reviewers),
         "reviewed by" => Some(ReviewedBy),
         "pull request" => Some(PullRequest),
+        "stack info" => Some(StackInfo),
         _ => None,
     }
 }
@@ -158,7 +161,10 @@ pub fn build_commit_message(section_texts: &MessageSectionsMap) -> String {
 }
 
 pub fn build_github_body(section_texts: &MessageSectionsMap) -> String {
-    build_message(section_texts, &[MessageSection::Summary])
+    build_message(
+        section_texts,
+        &[MessageSection::Summary, MessageSection::StackInfo],
+    )
 }
 
 pub fn build_github_body_for_merging(section_texts: &MessageSectionsMap) -> String {
