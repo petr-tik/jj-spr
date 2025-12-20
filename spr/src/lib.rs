@@ -11,6 +11,7 @@ pub mod error;
 pub mod git;
 pub mod github;
 pub mod jj;
+pub mod logging;
 pub mod message;
 pub mod output;
 pub mod revision_utils;

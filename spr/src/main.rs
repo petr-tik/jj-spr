@@ -14,6 +14,7 @@ use jj_spr::{
     commands,
     config::{get_auth_token, get_config_bool, get_config_value},
     error::{Error, Result, ResultExt},
+    logging,
     output::output,
 };
 use reqwest::{self, header};
@@ -81,6 +82,7 @@ pub enum OptionsError {
 }
 
 pub async fn spr() -> Result<()> {
+    tracing::warn!("Executing spr() func");
     let cli = Cli::parse();
 
     if let Commands::Init = cli.command {
@@ -206,6 +208,10 @@ pub async fn spr() -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize logging based on JJ_LOG environment variable
+    logging::init();
+
+    tracing::warn!("Starting jj-spr");
     if let Err(error) = spr().await {
         for message in error.messages() {
             output("🛑", message)?;

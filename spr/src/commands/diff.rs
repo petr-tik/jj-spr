@@ -60,6 +60,7 @@ pub async fn diff(
     gh: &mut crate::github::GitHub,
     config: &crate::config::Config,
 ) -> Result<()> {
+    tracing::warn!("diff with opts: {:?}", opts);
     let mut result = Ok(());
 
     // Determine revision and whether to use range mode
