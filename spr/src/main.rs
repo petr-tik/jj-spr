@@ -14,6 +14,7 @@ use jj_spr::{
     commands,
     config::{get_auth_token, get_config_bool, get_config_value},
     error::{Error, Result, ResultExt},
+    logging,
     output::output,
 };
 use reqwest::{self, header};
@@ -206,6 +207,8 @@ pub async fn spr() -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize logging based on JJ_LOG environment variable
+    logging::init();
     if let Err(error) = spr().await {
         for message in error.messages() {
             output("🛑", message)?;
