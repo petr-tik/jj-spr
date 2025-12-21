@@ -21,6 +21,7 @@ type URI = String;
 pub struct SearchQuery;
 
 pub async fn list(graphql_client: reqwest::Client, config: &crate::config::Config) -> Result<()> {
+    tracing::info!("Listing PRs");
     let variables = search_query::Variables {
         query: format!(
             "repo:{}/{} is:open is:pr author:@me archived:false",
