@@ -26,7 +26,7 @@ pub struct StackPosition {
 /// Generate stack information text for a PR description
 pub fn build_stack_info_text(
     position: &StackPosition,
-    _config: &Config,
+    config: &Config,
     all_commits: &[(Option<u64>, MessageSectionsMap)],
 ) -> String {
     tracing::debug!("position: {:?}", position);
@@ -48,8 +48,8 @@ pub fn build_stack_info_text(
             .filter(|(_, pr_opt)| pr_opt.is_some())
             .collect();
 
-        // Print commits with ASCII art
-        for (stack_idx, (commit_idx, pr_num_opt)) in commits_with_prs.iter().enumerate() {
+        // Print commits with ASCII art in reverse order (top to bottom, newest to oldest)
+        for (stack_idx, (commit_idx, pr_num_opt)) in commits_with_prs.iter().enumerate().rev() {
             let (_, message) = &all_commits[*commit_idx];
             let title = message
                 .get(&MessageSection::Title)
@@ -63,16 +63,21 @@ pub fn build_stack_info_text(
             if is_current {
                 text.push_str(&format!("* {} <- you are here\n", title));
             } else if let Some(pr_num) = pr_num_opt {
-                text.push_str(&format!("* [{}](#{}) - {}\n", title, pr_num, title));
+                text.push_str(&format!("* [{}/{}#{}](https://github.com/{}/{}#{}) - {}\n", 
+                    config.owner, config.repo, pr_num, config.owner, config.repo, pr_num, title));
             } else {
                 text.push_str(&format!("* {}\n", title));
             }
 
-            // Add connector line if not the last commit
-            if stack_idx < commits_with_prs.len() - 1 {
+            // Add connector line if not the last commit (i.e., not the bottom)
+            if stack_idx > 0 {
                 text.push_str("|\n");
             }
         }
+
+        // Add master/main branch at the bottom
+        text.push_str("|\n");
+        text.push_str("* master\n");
 
         text.push_str("\n");
     }
@@ -250,12 +255,14 @@ mod tests {
 
         // Check key elements are present
         assert!(text.contains("**Full Stack:**"));
-        // First commit should have a clickable link
-        assert!(text.contains("[Add authentication module](#120)"));
+        // Third commit should have a clickable link (at top since stack grows upwards)
+        assert!(text.contains("[LucioFranco/jj-spr#122](https://github.com/LucioFranco/jj-spr#122)"));
         // Current commit should not have a link
         assert!(text.contains("* Add user session handling <- you are here"));
-        // Third commit should have a clickable link
-        assert!(text.contains("[Add user profile endpoints](#122)"));
+        // First commit should have a clickable link
+        assert!(text.contains("[LucioFranco/jj-spr#120](https://github.com/LucioFranco/jj-spr#120)"));
+        // Master should be at the bottom
+        assert!(text.contains("* master"));
         assert!(text.starts_with("---"));
         assert!(text.ends_with("---"));
     }
