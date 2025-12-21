@@ -141,6 +141,8 @@ pub fn detect_stack_position(
         .map(|(_, pr)| *pr)
         .collect();
 
+    tracing::debug!("child_prs: {:?}", child_prs);
+
     Some(StackPosition {
         current: stack_position + 1,
         total: commits_with_prs.len(),
