@@ -139,7 +139,9 @@ pub fn detect_stack_position(
         .skip(stack_position + 1)
         .map(|(_, pr)| *pr)
         .collect();
+
     tracing::debug!("child_prs: {:?}", child_prs);
+
     Some(StackPosition {
         current: stack_position + 1,
         total: commits_with_prs.len(),
@@ -264,7 +266,6 @@ mod tests {
             "origin".to_string(),
             "main".to_string(),
             "spr/".to_string(),
-            false,
             false,
         );
 

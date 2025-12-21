@@ -19,8 +19,7 @@ pub fn init() {
         .with_env_var(ENV_VAR_NAME)
         .from_env_lossy();
 
-    let fmt_layer = tracing_subscriber::fmt::layer()
-        .with_writer(io::stderr);
+    let fmt_layer = tracing_subscriber::fmt::layer().with_writer(io::stderr);
 
     tracing_subscriber::registry()
         .with(fmt_layer.with_filter(filter))
