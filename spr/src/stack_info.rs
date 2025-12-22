@@ -10,6 +10,8 @@ use crate::{
     message::{MessageSection, MessageSectionsMap},
 };
 
+const UP_ARROW: &str = "↑";
+
 /// Represents information about a PR's position in a stack
 #[derive(Debug, Clone)]
 pub struct StackPosition {
@@ -35,69 +37,50 @@ pub fn build_stack_info_text(
     // Add horizontal rule separator
     text.push_str("---\n");
 
-    // Add stack position
-    text.push_str(&format!(
-        "**Stack Position: {} of {}**\n\n",
-        position.current, position.total
-    ));
-
-    // Add parent PR link if exists
-    if let Some(parent_pr) = position.parent_pr {
-        let parent_title = all_commits
-            .iter()
-            .find(|(pr, _)| *pr == Some(parent_pr))
-            .and_then(|(_, msg)| msg.get(&MessageSection::Title))
-            .map(|t| format!(" - {}", t))
-            .unwrap_or_default();
-
-        text.push_str(&format!(
-            "⬆️ **Depends on:** {}/{}#{}{}\n",
-            config.owner, config.repo, parent_pr, parent_title
-        ));
-    }
-
-    // Add child PR links if exist
-    if !position.child_prs.is_empty() {
-        text.push_str("⬇️ **Required for:**\n");
-        for child_pr in &position.child_prs {
-            let child_title = all_commits
-                .iter()
-                .find(|(pr, _)| *pr == Some(*child_pr))
-                .and_then(|(_, msg)| msg.get(&MessageSection::Title))
-                .map(|t| format!(" - {}", t))
-                .unwrap_or_default();
-
-            text.push_str(&format!(
-                "   - {}/{}#{}{}\n",
-                config.owner, config.repo, child_pr, child_title
-            ));
-        }
-    }
 
     // Add full stack visualization if stack has more than 1 PR
     if position.total > 1 {
-        text.push_str("\n**Full Stack:**\n");
 
-        for (idx, (pr_num_opt, message)) in all_commits.iter().enumerate() {
-            if let Some(pr_num) = pr_num_opt {
-                let num = idx + 1;
-                let title = message
-                    .get(&MessageSection::Title)
-                    .map(|t| format!(" - {}", t))
-                    .unwrap_or_default();
+        // Get all commits with PR numbers
+        let commits_with_prs: Vec<(usize, Option<u64>)> = all_commits
+            .iter()
+            .enumerate()
+            .map(|(idx, (pr_num_opt, _))| (idx, *pr_num_opt))
+            .filter(|(_, pr_opt)| pr_opt.is_some())
+            .collect();
 
-                let indicator = if num == position.current {
-                    " (this PR)"
-                } else {
-                    ""
-                };
+        // Print commits with ASCII art in reverse order (top to bottom, newest to oldest)
+        for (stack_idx, (commit_idx, pr_num_opt)) in commits_with_prs.iter().enumerate().rev() {
+            let (_, message) = &all_commits[*commit_idx];
+            let title = message
+                .get(&MessageSection::Title)
+                .map(|t| t.as_str())
+                .unwrap_or("(no title)");
 
-                text.push_str(&format!(
-                    "{}. {}/{}#{}{}{}\n",
-                    num, config.owner, config.repo, pr_num, title, indicator
-                ));
+            // Determine if this is the current commit
+            let is_current = *commit_idx == position.current - 1;
+            
+            // Add the node symbol and title
+            if is_current {
+                text.push_str(&format!("* {} **<- you are here**\n", title));
+            } else if let Some(pr_num) = pr_num_opt {
+                text.push_str(&format!("* [{}](https://github.com/{}/{}/pull/{})\n", 
+                    title, config.owner, config.repo, pr_num));
+            } else {
+                text.push_str(&format!("* {}\n", title));
+            }
+
+            // Add connector line if not the last commit (i.e., not the bottom)
+            if stack_idx > 0 {
+                text.push_str(&format!("{}\n", UP_ARROW));
             }
         }
+
+        // Add master/main branch at the bottom
+        text.push_str(&format!("{}\n", UP_ARROW));
+        text.push_str("* master\n");
+
+        text.push_str("\n");
     }
 
     text.push_str("\n---");
@@ -272,14 +255,15 @@ mod tests {
         let text = build_stack_info_text(&position, &config, &commits);
 
         // Check key elements are present
-        assert!(text.contains("Stack Position: 2 of 3"));
-        assert!(text.contains("⬆️ **Depends on:** LucioFranco/jj-spr#120"));
-        assert!(text.contains("Add authentication module"));
-        assert!(text.contains("⬇️ **Required for:**"));
-        assert!(text.contains("LucioFranco/jj-spr#122"));
-        assert!(text.contains("Add user profile endpoints"));
         assert!(text.contains("**Full Stack:**"));
-        assert!(text.contains("(this PR)"));
+        // Third commit should have a clickable link with title (at top since stack grows upwards)
+        assert!(text.contains("[Add user profile endpoints](https://github.com/LucioFranco/jj-spr/pull/122)"));
+        // Current commit should not have a link
+        assert!(text.contains("* Add user session handling <- you are here"));
+        // First commit should have a clickable link with title
+        assert!(text.contains("[Add authentication module](https://github.com/LucioFranco/jj-spr/pull/120)"));
+        // Master should be at the bottom
+        assert!(text.contains("* master"));
         assert!(text.starts_with("---"));
         assert!(text.ends_with("---"));
     }
