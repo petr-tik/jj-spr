@@ -104,17 +104,10 @@ pub async fn diff(
         })
         .collect();
 
-    // Create a snapshot of commits for stack detection (we need this because we'll be
-    // mutating the commits in the loop below)
-    let commits_snapshot: Vec<_> = prepared_commits
-        .iter()
-        .map(|c| (c.pull_request_number, c.message.clone()))
-        .collect();
-
     let mut message_on_prompt = "".to_string();
 
-    for (index, (prepared_commit, pull_request_task)) in
-        zip(prepared_commits.iter_mut(), pull_request_tasks.into_iter()).enumerate()
+    for (_index, (prepared_commit, pull_request_task)) in
+        prepared_commits.iter_mut().zip(pull_request_tasks.into_iter()).enumerate()
     {
         if result.is_err() {
             break;
@@ -141,10 +134,34 @@ pub async fn diff(
             prepared_commit,
             master_base_oid,
             pull_request,
-            index,
-            &commits_snapshot,
         )
         .await;
+    }
+
+    // Second pass: Update stack information for all commits now that we have the final state
+    // Create a snapshot of all commits to calculate stack positions accurately
+    let commits_snapshot: Vec<_> = prepared_commits
+        .iter()
+        .map(|c| (c.pull_request_number, c.message.clone()))
+        .collect();
+
+    for (index, prepared_commit) in prepared_commits.iter_mut().enumerate() {
+        // Detect and add/remove stack information
+        if let Some(stack_position) =
+            crate::stack_info::detect_stack_position(index, &commits_snapshot)
+        {
+            let stack_text =
+                crate::stack_info::build_stack_info_text(&stack_position, config, &commits_snapshot);
+            tracing::debug!("Stack info added for commit {}: {:?}", index, &stack_text);
+            if prepared_commit.message.insert(MessageSection::StackInfo, stack_text).is_none() {
+                prepared_commit.message_changed = true;
+            }
+        } else {
+            // Remove stack info if it exists but shouldn't (e.g., stack was reduced to single PR)
+            if prepared_commit.message.remove(&MessageSection::StackInfo).is_some() {
+                prepared_commit.message_changed = true;
+            }
+        }
     }
 
     // This updates the commit message in the local Jujutsu repository (if it was
@@ -167,27 +184,13 @@ async fn diff_impl(
     local_commit: &mut crate::jj::PreparedCommit,
     master_base_oid: Oid,
     pull_request: Option<PullRequest>,
-    current_index: usize,
-    all_commits_snapshot: &[(Option<u64>, MessageSectionsMap)],
 ) -> Result<()> {
     // Parsed commit message of the local commit
     let message = &mut local_commit.message;
 
-    // Detect and add stack information
-    if let Some(stack_position) =
-        crate::stack_info::detect_stack_position(current_index, all_commits_snapshot)
-    {
-        let stack_text =
-            crate::stack_info::build_stack_info_text(&stack_position, config, all_commits_snapshot);
-        tracing::debug!("Stack info added: {:?}", &stack_text);
-        message.insert(MessageSection::StackInfo, stack_text);
-        local_commit.message_changed = true;
-    } else {
-        // Remove stack info if it exists but shouldn't (e.g., stack was reduced to single PR)
-        if message.remove(&MessageSection::StackInfo).is_some() {
-            local_commit.message_changed = true;
-        }
-    }
+    // Note: Stack detection is now done in a second pass after all commits have been processed
+    // This is because we can't easily build an accurate snapshot of all commits at this point.
+    // The stack info will be added later in update_stack_info_for_commits.
 
     // Check if the local commit is based directly on the master branch.
     let directly_based_on_master = local_commit.parent_oid == master_base_oid;
