@@ -179,6 +179,7 @@ async fn diff_impl(
     {
         let stack_text =
             crate::stack_info::build_stack_info_text(&stack_position, config, all_commits_snapshot);
+        tracing::debug!("Stack info added: {:?}", &stack_text);
         message.insert(MessageSection::StackInfo, stack_text);
         local_commit.message_changed = true;
     } else {
