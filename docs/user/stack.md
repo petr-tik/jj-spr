@@ -341,3 +341,7 @@ jj log -r 'description(regex:"#[0-9]+")'
 5. **Monitor your stack**: Regularly run `jj log` to understand your stack's structure.
 
 The Jujutsu + jj-spr workflow makes stacked PRs feel natural and eliminates much of the complexity found in traditional Git-based stacking workflows.
+
+
+
+aaargh
