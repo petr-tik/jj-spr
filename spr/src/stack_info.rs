@@ -10,7 +10,7 @@ use crate::{
     message::{MessageSection, MessageSectionsMap},
 };
 
-const UP_ARROW: &str = "<kbd>&uarr;</kbd>";
+const UP_ARROW: &str = "↑";
 
 /// Represents information about a PR's position in a stack
 #[derive(Debug, Clone)]
