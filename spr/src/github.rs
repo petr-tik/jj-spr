@@ -119,6 +119,14 @@ type GitObjectID = String;
 )]
 pub struct PullRequestMergeabilityQuery;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/gql/schema.docs.graphql",
+    query_path = "src/gql/enable_auto_merge_mutation.graphql",
+    response_derives = "Debug"
+)]
+pub struct EnableAutoMergeMutation;
+
 impl GitHub {
     pub fn new(config: crate::config::Config, graphql_client: reqwest::Client) -> Self {
         Self {
@@ -351,22 +359,47 @@ impl GitHub {
         head_ref_name: String,
         draft: bool,
     ) -> Result<u64> {
-        let number = octocrab::instance()
+        let pr = octocrab::instance()
             .pulls(self.config.owner.clone(), self.config.repo.clone())
             .create(
                 message
                     .get(&MessageSection::Title)
                     .unwrap_or(&String::new()),
                 head_ref_name,
-                base_ref_name,
+                &base_ref_name,
             )
             .body(build_github_body(message))
             .draft(Some(draft))
             .send()
             .await?
-            .number;
+            ;
 
-        Ok(number)
+        // Enable auto-merge if it's a non-draft PR and the base_ref_name matches the master branch
+        if !draft && base_ref_name == self.config.master_ref.branch_name() {
+            // Get the PR ID needed for the GraphQL mutation
+            let variables = enable_auto_merge_mutation::Variables {
+                input: enable_auto_merge_mutation::EnablePullRequestAutoMergeInput {
+                    pull_request_id: pr.number.to_string(),
+                    // REVIEW - should this be configurable?
+                    merge_method: Some(enable_auto_merge_mutation::PullRequestMergeMethod::SQUASH),
+                    commit_headline: None,
+                    commit_body: None,
+                    author_email: None,
+                    expected_head_oid: None,
+                    client_mutation_id: None,
+                },
+            };
+            let request_body = EnableAutoMergeMutation::build_query(variables);
+            let _res = self
+                .graphql_client
+                .post("https://api.github.com/graphql")
+                .json(&request_body)
+                .send()
+                .await?;
+            }
+        
+
+        Ok(pr.number)
     }
 
     pub async fn update_pull_request(&self, number: u64, updates: PullRequestUpdate) -> Result<()> {
