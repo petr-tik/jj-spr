@@ -1,0 +1,14 @@
+mutation EnableAutoMergeMutation($input: EnablePullRequestAutoMergeInput!) {
+  enablePullRequestAutoMerge(input: $input) {
+    pullRequest {
+      number
+      autoMergeRequest {
+        enabledBy {
+          __typename
+          login
+        }
+        mergeMethod
+      }
+    }
+  }
+}
