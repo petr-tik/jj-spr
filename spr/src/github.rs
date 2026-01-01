@@ -375,7 +375,7 @@ impl GitHub {
             ;
 
         // Enable auto-merge if it's a non-draft PR and the base_ref_name matches the master branch
-        if !draft && base_ref_name == self.config.master_ref.branch_name() {
+        if !draft && dbg!(base_ref_name == self.config.master_ref.branch_name()) {
             // Get the PR ID needed for the GraphQL mutation
             let variables = enable_auto_merge_mutation::Variables {
                 input: enable_auto_merge_mutation::EnablePullRequestAutoMergeInput {
@@ -396,6 +396,7 @@ impl GitHub {
                 .json(&request_body)
                 .send()
                 .await?;
+            dbg!(_res);
             }
         
 
