@@ -351,22 +351,21 @@ impl GitHub {
         head_ref_name: String,
         draft: bool,
     ) -> Result<u64> {
-        let number = octocrab::instance()
+        let pr = octocrab::instance()
             .pulls(self.config.owner.clone(), self.config.repo.clone())
             .create(
                 message
                     .get(&MessageSection::Title)
                     .unwrap_or(&String::new()),
                 head_ref_name,
-                base_ref_name,
+                base_ref_name.clone(),
             )
             .body(build_github_body(message))
             .draft(Some(draft))
             .send()
-            .await?
-            .number;
+            .await?;
 
-        Ok(number)
+        Ok(pr.number)
     }
 
     pub async fn update_pull_request(&self, number: u64, updates: PullRequestUpdate) -> Result<()> {
